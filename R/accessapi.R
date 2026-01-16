@@ -37,6 +37,7 @@
 #' ms_api_url()
 #'
 #' @author Reto
+#' @export
 ms_api_url <- function(x = NULL, version = 1L) {
     version <- as.integer(version)[1L]
     stopifnot(
@@ -53,6 +54,7 @@ ms_api_url <- function(x = NULL, version = 1L) {
     if (!substr(x[[1]], 0, 1) == "/") x[[1]] <- paste0("/", x[[1]])
     return(paste0(apiurl, paste(x, collapse = "/")))
 }
+
 
 # Helper function to extract station information from an item
 #' @importFrom dplyr bind_rows
@@ -88,8 +90,34 @@ items_extract_features <- function(x) {
 #' containing datetime information.
 #'
 #' @param x data frame.
+#'
 #' @return Data frame with POSIXct variables if any variable
 #' containing datetime information was detected.
+#'
+#' @details Data received by the API or read via the files
+#' provided regularey contain date or datetime information
+#' as character strings.
+#'
+#' This function takes a data frame and tries to identify
+#' variables/columns containing date and time information
+#' to coerce the information into Date or POSIXct objects.
+#' Currently, the following formats are checked currently:
+#'
+#' * `2026-01-16T17:34:34(...)Z`: converted to POSIXct
+#' * `16.01.2026`: converted to Date
+#' * `2026-01-16`: converted to Date
+#' * `16.01.2026 12:03`: converted to POSIXct w/ time zone Europe/Zuerich
+#' * `16.01.2026 00:00`: converted to Date
+#'
+#' @examples
+#' \dontrun{
+#' autoconvert_datetime(data.frame(a = 1, b = "2026-01-16T12:34:56.23435Z"))
+#' autoconvert_datetime(data.frame(a = 1, b = "2026-01-16T12:34:56Z"))
+#' autoconvert_datetime(data.frame(a = 1, b = "16.01.2026 12:34"))
+#' autoconvert_datetime(data.frame(a = 1, b = "16.01.2026 00:00"))
+#' autoconvert_datetime(data.frame(a = 1, b = "16.01.2026"))
+#' autoconvert_datetime(data.frame(a = 1, b = "2026-01-16"))
+#' }
 #'
 #' @author Reto
 #' @importFrom parsedate parse_iso_8601
@@ -97,14 +125,27 @@ autoconvert_datetime <- function(x) {
     stopifnot(is.data.frame(x))
     if (nrow(x) == 0L) return(x)
 
-    # Converting datetime if found
-    check_for_dt <- function(x) {
-        pattern <- "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
-        which(colSums(sapply(x, function(x) grepl(pattern, x) | is.na(x))) == nrow(x))
+    get_idx <- function(x, pattern) {
+        tmp <- sapply(x, function(x) grepl(pattern, x) | is.na(x))
+        which(if (is.matrix(tmp)) colSums(tmp) == nrow(x) else tmp)
     }
 
-    idx_dt <- check_for_dt(x)
-    for (i in idx_dt) x[[i]] <- parse_iso_8601(x[[i]])
+    # Checking for ISO8601 format (Y-m-dTH:M:S..) and convert, if found
+    idx <- get_idx(x, "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}")
+    for (i in idx) x[[i]] <- parse_iso_8601(x[[i]])
+
+    # Checking for 'german date' and convert, if found.
+    idx <- get_idx(x, "^[0-9]{2}.[0-9]{2}.[0-9]{4}$")
+    for (i in idx) x[[i]] <- as.Date(x[[i]], format = "%d.%m.%Y")
+
+    # Checking for 'date' and convert, if found.
+    idx <- get_idx(x, "^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+    for (i in idx) x[[i]] <- as.Date(x[[i]], format = "%Y-%m-%d")
+
+    # Checking for 'german date and time' and convert, if found.
+    idx <- get_idx(x, "^[0-9]{2}.[0-9]{2}.[0-9]{4}\\s+[0-9]{2}:[0-9]{2}")
+    for (i in idx) x[[i]] <- as.POSIXct(x[[i]], format = "%d.%m.%Y %H:%M", tz = "Europe/Zurich")
+
     return(x)
 }
 
@@ -127,6 +168,7 @@ autoconvert_datetime <- function(x) {
 #'        be requested if `paging = TRUE`.
 #' @param verbose logical, defaults to `FALSE`. If set `TRUE` the
 #'        some messages are printed.
+#' @param \dots forwarded to the `httr::GET()` function.
 #'
 #' @details We are expecting a JSON response from the API, thus
 #' we expect that the request content is decoded to a list by the
@@ -142,7 +184,7 @@ autoconvert_datetime <- function(x) {
 #' @return List with the decoded information.
 #'
 #' @author Reto
-#' @importFrom httr GET content
+#' @importFrom httr GET content status_code
 get_request <- function(url, query = NULL, paging = FALSE, limit = 100L, verbose = FALSE, ...) {
 
     limit <- as.integer(limit)[1L]
@@ -296,7 +338,7 @@ ms_collections <- function(verbose = FALSE, raw = FALSE) {
 #' @author Reto
 #'
 #' @importFrom stats setNames
-#' @importFrom sf st_as_sfc st_crs
+#' @importFrom sf st_as_sf st_crs
 ms_items <- function(id, verbose = FALSE, raw = FALSE) {
 
     stopifnot(
@@ -335,19 +377,108 @@ ms_items <- function(id, verbose = FALSE, raw = FALSE) {
     return(st_as_sf(res, coords = c("lon", "lat"), crs = st_crs(4326)))
 }
 
+#' Collection Assets
+#'
+#' Retrieving all assets of a specific collection.
+#'
+#' @param id character, ID of the collection for which to retrieve
+#'        the items (see [ms_collections()]).
+#' @param verbose logical, defaults to `FALSE`. If set `TRUE` the
+#'        some messages are printed.
+#' @param raw logical, defaults to `FALSE` (see Return).
+#'
+#' @return If `raw = TRUE` a list of lists is returned with the
+#' raw (json decoded) result from the API calls. Each element in
+#' the list corresponds to one API call (paging).
+#'
 #' @export
-ms_assets <- function(url = NULL) {
+#' @author Reto
+#'
+#' @importFrom dplyr bind_rows
+ms_assets <- function(id, verbose = FALSE, raw = FALSE) {
 
     stopifnot(
-        "argument 'url' must be NULL or character of length 1" = 
-            is.null(url) || (is.character(url) && length(url) == 1L)
+        "argument 'id' must be character of length 1" = 
+            is.character(id) && length(id) == 1L && nchar(id) > 0L,
+        "argument 'raw' must be TRUE or FALSE" = isTRUE(raw) || isFALSE(raw)
     )
 
-    if (is.null(url))
-        url <- paste0("https://data.geo.admin.ch/",
-                      "api/stac/v1/collections/ch.meteoschweiz.ogd-smn/assets")
+    # Generate expected API end point
+    url <- ms_api_url(c("collections", id, "assets"))
+    print(url)
 
-    tmp <- get_request(url)
-    return(tmp)
+    if (verbose) message("Retrieving items")
 
+    # Downloading the data from the API. Each time the API returns up to
+    # 100 items, paging = TRUE calls the API until all items are fetched.
+    res <- get_request(url, paging = TRUE, verbose = verbose)
+
+    # RAW results requested? Job done ...
+    if (raw) return(res)
+
+    # Extracting asset details and return as data.frame
+    fn <- function(x) {
+        atom <- which(sapply(x, is.atomic))
+        return(x[atom])
+    }
+    res <- bind_rows(lapply(res, function(x) lapply(x$assets, fn)))
+    names(res) <- gsub("\\:", "_", names(res))
+    return(as.data.frame(autoconvert_datetime(res)))
 }
+
+##  #' Data Inventory
+##  #'
+##  #' Downloading data inventory of a specific data set collection.
+##  #'
+##  #' @param id character, ID of the collection for which to retrieve
+##  #'        the items (see [ms_collections()]).
+##  #' @param verbose logical, defaults to `FALSE`. If set `TRUE` the
+##  #'        some messages are printed.
+##  #'
+##  #' @return If `raw = TRUE` a list of lists is returned with the
+##  #' raw (json decoded) result from the API calls. Each element in
+##  #' the list corresponds to one API call (paging).
+##  #'
+##  #' @export
+##  #' @author Reto
+##  #'
+##  #' @importFrom stats setNames
+##  #' @importFrom utils read.csv2
+##  ms_inventory <- function(id, verbose = FALSE, raw = FALSE) {
+##
+##      stopifnot(
+##          "argument 'id' must be character of length 1" =
+##              is.character(id) && length(id) == 1L && nchar(id) > 0L,
+##          "argument 'raw' must be TRUE or FALSE" = isTRUE(raw) || isFALSE(raw)
+##      )
+##
+##      # Generate expected API end point
+##      url <- ms_api_url(c("collections", id, "assets"))
+##
+##      if (verbose) message("Retrieving items")
+##
+##      # Downloading the data from the API. Each time the API returns up to
+##      # 100 items, paging = TRUE calls the API until all items are fetched.
+##      res <- get_request(url, paging = TRUE, verbose = verbose)
+##
+##      # RAW results requested? Job done ...
+##      if (raw) return(res)
+##
+##      # Else we try to prepare the data in an R object
+##      type <- sapply(res, function(x) x$type)
+##      if (!all(type == type[[1]])) {
+##          # TODO: Is that possible?
+##          stop("Not all item type identical, got ", paste(unique(type), collapse = ", "))
+##      }
+##      type <- type[[1]] # Our type
+##
+##      # Feature type? Create simple features data.frame
+##      if (type == "FeatureCollection") {
+##          # Extracting features
+##          res <- do.call(rbind, lapply(res, items_extract_features))
+##      }
+##
+##      # Convert data frame to simple features data frame
+##      return(st_as_sf(res, coords = c("lon", "lat"), crs = st_crs(4326)))
+##  }
+

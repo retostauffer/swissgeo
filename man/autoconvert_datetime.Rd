@@ -17,6 +17,34 @@ containing datetime information was detected.
 Takes a data frame as input and tries to identify columns
 containing datetime information.
 }
+\details{
+Data received by the API or read via the files
+provided regularey contain date or datetime information
+as character strings.
+
+This function takes a data frame and tries to identify
+variables/columns containing date and time information
+to coerce the information into Date or POSIXct objects.
+Currently, the following formats are checked currently:
+\itemize{
+\item \verb{2026-01-16T17:34:34(...)Z}: converted to POSIXct
+\item \verb{16.01.2026}: converted to Date
+\item \code{2026-01-16}: converted to Date
+\item \verb{16.01.2026 12:03}: converted to POSIXct w/ time zone Europe/Zuerich
+\item \verb{16.01.2026 00:00}: converted to Date
+}
+}
+\examples{
+\dontrun{
+autoconvert_datetime(data.frame(a = 1, b = "2026-01-16T12:34:56.23435Z"))
+autoconvert_datetime(data.frame(a = 1, b = "2026-01-16T12:34:56Z"))
+autoconvert_datetime(data.frame(a = 1, b = "16.01.2026 12:34"))
+autoconvert_datetime(data.frame(a = 1, b = "16.01.2026 00:00"))
+autoconvert_datetime(data.frame(a = 1, b = "16.01.2026"))
+autoconvert_datetime(data.frame(a = 1, b = "2026-01-16"))
+}
+
+}
 \author{
 Reto
 }

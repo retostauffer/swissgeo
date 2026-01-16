@@ -1,14 +1,14 @@
 Package: msdata
 Type: Package
-Title: Interface to the geo.admin.ch Open Data API
+Title: Interface to the Geoportal des Bundes (Swiss Federal Government Open Data Portal)
 Version: 0.0-9000
 Date: 2026-01-15
 Authors@R: person(given = "Reto", family = "Stauffer", role = c("aut", "cre"),
                   email = "reto.stauffer@uibk.ac.at",
                   comment = c(ORCID = "0000-0002-3798-5507"))
 Maintainer: Reto Stauffer <reto.stauffer@uibk.ac.at>
-Depends: httr, zoo, sf, parsedate, dplyr
-Suggests: utils, tinytest
+Depends: httr, sf, parsedate, dplyr
+Suggests: utils, tinytest, knitr
 Description: Package to download data from data.geo.admin.ch.
 URL: https://retostauffer.github.io/msdata
 License: GPL-2

@@ -33,6 +33,8 @@ be requested if \code{paging = TRUE}.}
 
 \item{verbose}{logical, defaults to \code{FALSE}. If set \code{TRUE} the
 some messages are printed.}
+
+\item{\dots}{forwarded to the \code{httr::GET()} function.}
 }
 \value{
 List with the decoded information.

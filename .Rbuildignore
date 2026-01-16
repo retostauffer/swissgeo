@@ -1,4 +1,5 @@
 
+^MAKEFILE$
 ^README.md$
 ^test.R$
 

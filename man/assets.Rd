@@ -22,10 +22,20 @@ assets(x)
 
 \method{names}{assets}(x)
 
-\method{as.data.frame}{assets}(x)
+\method{as.data.frame}{assets}(x, row.names = NULL, optional = NA, ...)
 }
 \arguments{
 \item{x}{object of class 'assets'.}
+
+\item{\dots}{currently ignored.}
+
+\item{i}{elements to extract or replace. Numeric values coerced
+to integer identifying the \code{i}th element(s) for subsetting.}
+
+\item{row.names}{\code{NULL} (default) or a character vector giving the row names for
+the data frame. Only used if \code{x} is of length 1L.}
+
+\item{optional}{currently ignored.}
 }
 \value{
 An asset data frame with the name of the asset and all provided

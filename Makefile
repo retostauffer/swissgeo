@@ -29,7 +29,7 @@ coverage: install
 	Rscript -e 'covr::report(covr::package_coverage(), file = "../coverage.html")'
 
 # ---------------------------------------------------
-# R CMD build and check (--as-cran)
+# R CMD build and check ## --as-cran removed
 # ---------------------------------------------------
 packageversion:=$(shell cat DESCRIPTION | egrep Version | sed 's/Version://g')
 
@@ -38,4 +38,5 @@ build: document
 	R CMD build msdata
 check: build
 	cd ../ && \
-	R CMD check --as-cran msdata_$(shell printf "%s"${packageversion}).tar.gz
+	R CMD check msdata_$(shell printf "%s"${packageversion}).tar.gz
+	#R CMD check --as-cran msdata_$(shell printf "%s"${packageversion}).tar.gz

@@ -44,6 +44,9 @@ print.assets <- function(x, ...) {
     invisible(x)
 }
 
+#' @param i elements to extract or replace. Numeric values coerced
+#'        to integer identifying the `i`th element(s) for subsetting.
+#'
 #' @exportS3Method `[` assets
 #' @rdname assets
 #' @author Reto
@@ -65,10 +68,18 @@ names.assets <- function(x) {
     return(if (length(res) == 1L) res[[1]] else res)
 }
 
+#' @param row.names `NULL` (default) or a character vector giving the row names for
+#'        the data frame. Only used if `x` is of length 1L.
+#' @param optional currently ignored.
+#' @param \dots currently ignored.
+#'
 #' @exportS3Method as.data.frame assets
 #' @rdname assets
 #' @author Reto
-as.data.frame.assets <- function(x) {
+as.data.frame.assets <- function(x, row.names = NULL, optional = NA, ...) {
     res <- lapply(x, function(y) structure(y, class = "data.frame"))
-    return(if (length(res) == 1L) res[[1]] else res)
+    res <- if (length(res) == 1L) res[[1]] else res
+    if (!is.null(row.names) && is.data.frame(res))
+        rownames(res) <- row.names
+    return(res)
 }

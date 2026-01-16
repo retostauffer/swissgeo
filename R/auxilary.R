@@ -12,6 +12,7 @@
 #' @return No return, will terminate R.
 #'
 #' @author Reto Stauffer
+#' @importFrom httr http_status
 # Show http_status message if possible.
 show_http_status_and_terminate <- function(scode, xtra = NULL) {
 
