@@ -65,9 +65,11 @@ get_request <- function(url, query = NULL, paging = FALSE, limit = 100L, verbose
         "argument 'verbose' must be TRUE or FALSE" = isTRUE(verbose) || isFALSE(verbose)
     )
 
-    fn <- function(url, query, verbose) {
+    downloadfn <- function(url, query) {
+        # Scopes 'verbose'!
+        if (verbose) message("Sending get request to ", url)
+
         # Sending query = NULL would kill (remove) the parameters specified in URL
-        message("Sending get request to ", url)
         req <- if (is.null(query)) GET(url, ...) else GET(url, query = query, ...)
 
         if (!status_code(req) %/% 100 == 2) {
@@ -86,7 +88,7 @@ get_request <- function(url, query = NULL, paging = FALSE, limit = 100L, verbose
 
     # No paging expected/required we simply do cone request
     # and return the result we get (the 'raw' encoded list)
-    if (!paging) return(fn(url, query = NULL, verbose))
+    if (!paging) return(downloadfn(url, query = NULL))
 
     # Else we have to send an initial request first and check
     # if we get a 'next' link which allows us to request the
@@ -96,7 +98,7 @@ get_request <- function(url, query = NULL, paging = FALSE, limit = 100L, verbose
     # Initial request, check for 'next' link. `get_link_next`
     # returns a character (url) if we have to do another
     # request (while loop), else `NULL`.
-    tmp <- fn(url, query = list(limit = limit), verbose = verbose)
+    tmp <- downloadfn(url, query = list(limit = limit))
     link_next <- get_link_next(tmp)
 
     # Store initial result as a list
@@ -106,7 +108,7 @@ get_request <- function(url, query = NULL, paging = FALSE, limit = 100L, verbose
     # batch to download.
     while (is.character(link_next)) {
         # Sending request to the API
-        tmp       <- fn(link_next, query = NULL)
+        tmp       <- downloadfn(link_next, query = NULL)
         link_next <- get_link_next(tmp)
         res[[length(res) + 1L]] <- tmp
     }
@@ -126,6 +128,67 @@ get_link_next <- function(x) {
     x   <- x$links
     idx <- which(sapply(x, function(k) k$rel == "next"))
     return(if (!length(idx) == 1L) NULL else x[[idx]]$href)
+}
+
+
+#' Available Collections
+#'
+#' Requesting a list of all available collections provided via the API.
+#'
+#' @param verbose logical, defaults to `FALSE`. If set `TRUE` the
+#'        some messages are printed.
+#' @param raw logical, defaults to `FALSE` (see Return).
+#'
+#' @return A data frame with a series of properties from the
+#' collections (if `raw = FALSE`), else a list of lists with
+#' the unformatted return from the API. Each element of the
+#' list is the result of one API request (paging).
+#'
+#' @examples
+#' \dontrun{
+#' ## Fetch all available collections
+#' collections <- ms_collections()
+#'
+#' ## Extract collections by MeteoSchweiz
+#' subset(res, grepl("meteoschweiz", id))
+#' }
+#'
+#' @export
+#' @author Reto
+#'
+#' @importFrom lubridate ymd_hms
+#' @importFrom dplyr bind_rows
+ms_collections <- function(verbose = FALSE, raw = FALSE) {
+
+    stopifnot("argument 'raw' must be TRUE or FALSE" = isTRUE(raw) || isFALSE(raw))
+
+    if (verbose) message("Retrieving collections")
+
+    # Downloading the data from the API. Each time the API returns up to
+    # 100 items, paging = TRUE calls the API until all items are fetched.
+    url <- "https://data.geo.admin.ch/api/stac/v1/collections"
+    res <- get_request(url, paging = TRUE, verbose = verbose)
+
+    extractfun <- function(x) {
+        stopifnot(is.list(x))
+        take <- c("id", "title", "description", "license",
+                  "created", "updated")
+        res <- x[take[take %in% names(x)]]
+        if (!is.null(x[[c("summaries", "proj:epsg")]]))
+            res$crs <- x[[c("summaries", "proj:epsg")]][[1]]
+        return(res)
+    }
+
+    if (raw) return(res)
+
+    if (verbose) message("Preparing data frame for the return")
+    res <- lapply(res, function(x) bind_rows(lapply(x$collections, extractfun)))
+    res <- as.data.frame(bind_rows(res))
+    for (col in c("created", "updated")) {
+        if (col %in% names(res)) res[[col]] <- ymd_hms(res[[col]])
+    }
+
+    return(res)
 }
 
 #' Available Automated Weather Stations
@@ -168,8 +231,11 @@ ms_stations <- function(url = NULL, verbose = FALSE) {
     # 100 items, paging = TRUE calls the API until all items are fetched.
     res <- get_request(url, paging = TRUE, verbose = verbose)
 
-    res <- lapply(res, items_extract_stations)
-    return(st_as_sf(do.call(rbind, res), coords = c("lon", "lat"), crs = st_crs(4326)))
+    # Extracting station information, combine results
+    res <- do.call(rbind, lapply(res, items_extract_stations))
+
+    # Convert data frame to simple features data frame
+    return(st_as_sf(res, coords = c("lon", "lat"), crs = st_crs(4326)))
 }
 
 #' @export
