@@ -208,14 +208,22 @@ get_link_next <- function(x) {
 #'
 #' Requesting a list of all available collections provided via the API.
 #'
+#' @param pattern `NULL` or a pattern used return a subset of all
+#'        available collections, applied to the collection ID.
 #' @param verbose logical, defaults to `FALSE`. If set `TRUE` the
 #'        some messages are printed.
 #' @param raw logical, defaults to `FALSE` (see Return).
 #'
-#' @return A data frame with a series of properties from the
-#' collections (if `raw = FALSE`), else a list of lists with
-#' the unformatted return from the API. Each element of the
-#' list is the result of one API request (paging).
+#' @return Returns a tbl data frame with the available collections.
+#' If `pattern = NULL` all collections found are returned. If
+#' a `pattern` is specified, all collections where the collection ID
+#' (`id`) matches the pattern are returned. If no IDs match the
+#' pattern, a warning is thrown and `NULL` is returned.
+#'
+#' If `raw = TRUE` is specified, `pattern` is ignored and the raw
+#' data as retrieved by the API are returned as a list of lists.
+#' Each element of the list corresponds to one API call containing
+#' a set of lists corresponding to the different collections returned.
 #'
 #' @examples
 #' \dontrun{
@@ -230,9 +238,14 @@ get_link_next <- function(x) {
 #' @author Reto
 #'
 #' @importFrom dplyr bind_rows
-sg_collections <- function(verbose = FALSE, raw = FALSE) {
+sg_collections <- function(pattern = NULL, verbose = FALSE, raw = FALSE) {
 
-    stopifnot("argument 'raw' must be TRUE or FALSE" = isTRUE(raw) || isFALSE(raw))
+    stopifnot(
+        "argument 'pattern' must be NULL or a single non-empty character" =
+            is.null(pattern) ||
+            (is.character(pattern) && length(pattern) == 1L && nchar(pattern) > 0L),
+        "argument 'raw' must be TRUE or FALSE" = isTRUE(raw) || isFALSE(raw)
+    )
 
     if (verbose) message("Retrieving collections")
 
@@ -243,24 +256,30 @@ sg_collections <- function(verbose = FALSE, raw = FALSE) {
 
     extractfun <- function(x) {
         stopifnot(is.list(x))
-        take <- c("id", "title", "description", "license",
-                  "created", "updated")
+        take <- c("id", "title", "description", "license", "created", "updated")
         res <- x[take[take %in% names(x)]]
         if (!is.null(x[[c("summaries", "proj:epsg")]]))
             res$crs <- x[[c("summaries", "proj:epsg")]][[1]]
         return(res)
     }
 
-    if (raw) return(res)
+    if (raw) return(do.call(c, res))
 
     if (verbose) message("Preparing data frame for the return")
     res <- lapply(res, function(x) bind_rows(lapply(x$collections, extractfun)))
-    res <- as.data.frame(bind_rows(res))
+    res <- bind_rows(res)
+    if (!is.null(pattern)) {
+        idx <- grep(pattern, res$id)
+        if (length(idx) == 0L) {
+            warning("No collection ids matching ", pattern, ", returning NULL.")
+            return(NULL)
+        }
+        res <- res[idx, ]
+    }
 
     # Converting columns containing ISO 8601 datetime information
     # from character to POSIXct
-    res <- autoconvert_datetime(res)
-    return(res)
+    return(autoconvert_datetime(res))
 }
 
 #' Collection Items

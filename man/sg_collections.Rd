@@ -4,19 +4,28 @@
 \alias{sg_collections}
 \title{Collections}
 \usage{
-sg_collections(verbose = FALSE, raw = FALSE)
+sg_collections(pattern = NULL, verbose = FALSE, raw = FALSE)
 }
 \arguments{
+\item{pattern}{\code{NULL} or a pattern used return a subset of all
+available collections, applied to the collection ID.}
+
 \item{verbose}{logical, defaults to \code{FALSE}. If set \code{TRUE} the
 some messages are printed.}
 
 \item{raw}{logical, defaults to \code{FALSE} (see Return).}
 }
 \value{
-A data frame with a series of properties from the
-collections (if \code{raw = FALSE}), else a list of lists with
-the unformatted return from the API. Each element of the
-list is the result of one API request (paging).
+Returns a tbl data frame with the available collections.
+If \code{pattern = NULL} all collections found are returned. If
+a \code{pattern} is specified, all collections where the collection ID
+(\code{id}) matches the pattern are returned. If no IDs match the
+pattern, a warning is thrown and \code{NULL} is returned.
+
+If \code{raw = TRUE} is specified, \code{pattern} is ignored and the raw
+data as retrieved by the API are returned as a list of lists.
+Each element of the list corresponds to one API call containing
+a set of lists corresponding to the different collections returned.
 }
 \description{
 Requesting a list of all available collections provided via the API.
