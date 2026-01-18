@@ -60,3 +60,39 @@ expect_error(swissgeo:::show_http_status_and_terminate(404, xtra = list(foo = "b
 expect_error(swissgeo:::show_http_status_and_terminate(404, xtra = list(foo = "bar", test = 12345)),
              pattern = "foo\\:\\s+bar.*test\\:\\s+12345",
              info = "Error with custom message expected.")
+
+
+# -------------------------------------------------------
+# Generating API URLs/URIs
+# -------------------------------------------------------
+
+# Getting API base URL set by .onAttach function
+apiurl <- getOption("swissgeo.apiurl")
+expect_true(is.character(apiurl) && length(apiurl) == 1L &&
+            grepl("^https\\:\\/\\/", apiurl),
+            info = "Option 'swissgeo.apiurl' is set and valid character.")
+
+expect_true(is.function(sg_api_url),
+            info = "Function to generate API URLs exist.")
+
+# Sanity checks
+expect_error(sg_api_url("foo", ""),
+            info = "Error thrown when arguments contain empty strings.")
+expect_error(sg_api_url(list(1, 2, 3)),
+            info = "Error thrown when arguments can't be coerced to valid character.")
+expect_error(sg_api_url(mean),
+            info = "Error thrown when arguments can't be coerced to valid character.")
+
+# Default usage: getting base url
+expect_identical(sg_api_url(), apiurl,
+            info = "Getting base API url")
+expect_identical(sg_api_url(1234), paste0(apiurl, "/1234"),
+            info = "API URL correctly extended by /1234.")
+expect_identical(sg_api_url("foo"), paste0(apiurl, "/foo"),
+            info = "API URL correctly extended by /foo.")
+expect_identical(sg_api_url("foo/bar"), paste0(apiurl, "/foo/bar"),
+            info = "API URL correctly extended by /foo/bar.")
+expect_identical(sg_api_url("foo", "bar"), paste0(apiurl, "/foo/bar"),
+            info = "API URL correctly extended by /foo/bar.")
+
+
