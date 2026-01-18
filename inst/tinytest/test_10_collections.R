@@ -9,14 +9,12 @@ if (interactive()) { library("tinytest"); library("swissgeo") }
 # HTTP error handler function
 # -------------------------------------------------------
 
-formals(sg_collections)
-
 # First at all, check that the function
 expect_true(is.function(sg_collections),
-            info = "Function swissgeo:::show_http_status_and_terminate exists")
+            info = "Function sg_collections exists.")
 # Checking default arguments
-expect_identical(as.list(formals(sg_collections)),
-                 list(pattern = NULL, verbose = FALSE, raw = FALSE),
+expect_identical(formals(sg_collections),
+                 as.pairlist(alist(pattern = NULL, verbose = FALSE, raw = FALSE)),
             info = "Function arguments and defaults as expected.")
 
 # Incorrect use/sanity checks

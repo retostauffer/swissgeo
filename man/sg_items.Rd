@@ -19,9 +19,29 @@ some messages are printed.}
 If \code{raw = TRUE} a list of lists is returned with the
 raw (json decoded) result from the API calls. Each element in
 the list corresponds to one API call (paging).
+
+Else (default) the function tries to auto-detect the format.
+As an example, if the returned data are of type "FeatureCollection"s
+The data is converted to a simple feature data frame which is
+then returned. If now only "FeatureCollection" is implemented,
+if the returned data is of a different type the raw list
+is returned (TODO).
 }
 \description{
 Retrieving all items of a specific collection.
+}
+\examples{
+\dontrun{
+## Retrieving items for a collection w/ features
+CID <- "ch.meteoschweiz.ogd-smn"
+items <- sg_items(CID)
+
+## Visualizing the features
+library("ggplot2")
+ggplot(st_transform(items, crs = st_crs(2056))) +
+    geom_sf(col = "lightgreen") + geom_sf_text(aes(label = id))
+}
+
 }
 \author{
 Reto

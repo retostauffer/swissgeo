@@ -16,9 +16,11 @@ some messages are printed.}
 \item{raw}{logical, defaults to \code{FALSE} (see Return).}
 }
 \value{
-If \code{raw = TRUE} a list of lists is returned with the
-raw (json decoded) result from the API calls. Each element in
-the list corresponds to one API call (paging).
+A tbl data frame containing the asset details is returned.
+
+If \code{raw = TRUE} a list of lists is returned with the raw (json decoded)
+result from the API calls. Each element in the list corresponds to one API
+call (paging).
 }
 \description{
 Retrieving all assets of a specific collection.

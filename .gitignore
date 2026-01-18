@@ -2,3 +2,6 @@
 
 /test.R
 /test_*.R
+
+# Folder for storing assets/data sets, used for testing.
+/_data

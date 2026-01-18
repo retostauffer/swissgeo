@@ -20,7 +20,7 @@ assets <- function(x) {
         "argument 'x' must be an unnamed list (of assets)" =
             is.list(x) && is.null(names(x)),
         "elements in 'x' must be named lists" = 
-            all(lapply(x, function(y) is.list(y) && !is.null(names(y))))
+            all(sapply(x, function(y) is.list(y) && !is.null(names(y))))
     )
 
     fn <- function(x) cbind(data.frame(name = names(x)), bind_rows(x))
@@ -40,7 +40,13 @@ format.assets <- function(x, ...) {
 #' @rdname assets
 #' @author Reto
 print.assets <- function(x, ...) {
-    print(sprintf("assets: %d", as.numeric(x)))
+    fn <- function(i) {
+        y <- x[[i]]
+        c(sprintf("[%d] Assets: %d", i, nrow(y)),
+          sprintf("      [%s] %s", y$type, y$name))
+    }
+    res <- do.call(c, lapply(seq_along(x), fn))
+    cat(res, sep = "\n")
     invisible(x)
 }
 

@@ -104,3 +104,69 @@ show_http_status_and_terminate <- function(scode, xtra = NULL) {
         stop(paste("HTTP request error", xtra, info, sep = "\n"))
     }
 }
+
+
+#' Converting Datetime Columns
+#'
+#' Takes a data frame as input and tries to identify columns
+#' containing datetime information.
+#'
+#' @param x data frame.
+#'
+#' @return Data frame with POSIXct variables if any variable
+#' containing datetime information was detected.
+#'
+#' @details Data received by the API or read via the files
+#' provided regularey contain date or datetime information
+#' as character strings.
+#'
+#' This function takes a data frame and tries to identify
+#' variables/columns containing date and time information
+#' to coerce the information into Date or POSIXct objects.
+#' Currently, the following formats are checked currently:
+#'
+#' * `2026-01-16T17:34:34(...)Z`: converted to POSIXct
+#' * `16.01.2026`: converted to Date
+#' * `2026-01-16`: converted to Date
+#' * `16.01.2026 12:03`: converted to POSIXct w/ time zone Europe/Zuerich
+#' * `16.01.2026 00:00`: converted to Date
+#'
+#' @examples
+#' \dontrun{
+#' autoconvert_datetime(data.frame(a = 1, b = "2026-01-16T12:34:56.23435Z"))
+#' autoconvert_datetime(data.frame(a = 1, b = "2026-01-16T12:34:56Z"))
+#' autoconvert_datetime(data.frame(a = 1, b = "16.01.2026 12:34"))
+#' autoconvert_datetime(data.frame(a = 1, b = "16.01.2026 00:00"))
+#' autoconvert_datetime(data.frame(a = 1, b = "16.01.2026"))
+#' autoconvert_datetime(data.frame(a = 1, b = "2026-01-16"))
+#' }
+#'
+#' @author Reto
+#' @importFrom parsedate parse_iso_8601
+autoconvert_datetime <- function(x) {
+    stopifnot(is.data.frame(x))
+    if (nrow(x) == 0L) return(x)
+
+    get_idx <- function(x, pattern) {
+        tmp <- sapply(x, function(x) grepl(pattern, x) | is.na(x))
+        which(if (is.matrix(tmp)) colSums(tmp) == nrow(x) else tmp)
+    }
+
+    # Checking for ISO8601 format (Y-m-dTH:M:S..) and convert, if found
+    idx <- get_idx(x, "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}")
+    for (i in idx) x[[i]] <- parse_iso_8601(x[[i]])
+
+    # Checking for 'german date' and convert, if found.
+    idx <- get_idx(x, "^[0-9]{2}.[0-9]{2}.[0-9]{4}$")
+    for (i in idx) x[[i]] <- as.Date(x[[i]], format = "%d.%m.%Y")
+
+    # Checking for 'date' and convert, if found.
+    idx <- get_idx(x, "^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+    for (i in idx) x[[i]] <- as.Date(x[[i]], format = "%Y-%m-%d")
+
+    # Checking for 'german date and time' and convert, if found.
+    idx <- get_idx(x, "^[0-9]{2}.[0-9]{2}.[0-9]{4}\\s+[0-9]{2}:[0-9]{2}")
+    for (i in idx) x[[i]] <- as.POSIXct(x[[i]], format = "%d.%m.%Y %H:%M", tz = "Europe/Zurich")
+
+    return(x)
+}

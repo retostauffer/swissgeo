@@ -96,3 +96,60 @@ expect_identical(sg_api_url("foo", "bar"), paste0(apiurl, "/foo/bar"),
             info = "API URL correctly extended by /foo/bar.")
 
 
+# -------------------------------------------------------
+# Automatically converting datetime variables/columns
+# -------------------------------------------------------
+
+# Getting API base URL set by .onAttach function
+expect_true(is.function(swissgeo:::autoconvert_datetime),
+            info = "Non-exported function autoconvert_datetime exists.")
+expect_error(swissgeo:::autoconvert_datetime(3),
+            info = "Error if input is not a data.frame.")
+emptydf <- subset(data.frame(a = 1, b = 2, c = "foo"), a < 0)
+expect_identical(swissgeo:::autoconvert_datetime(emptydf), emptydf,
+            info = "If the input is an empty df, the return is identical to the input.")
+
+d <- data.frame(a = 1, b = "test", c = "2026-01-16T12:34:56.23435Z")
+expect_silent(r <- swissgeo:::autoconvert_datetime(d), info = "Function is silent.")
+expect_identical(dim(d), dim(r), info = "Return of same dimension as the input.")
+expect_identical(names(d), names(r), info = "Names of return identical to input.")
+expect_inherits(r$c, "POSIXct", info = "Column $c converted to POSIXct.")
+rm(d, r)
+
+d <- data.frame(a = 1, b = "test", c = "2026-01-16T12:34:56Z")
+expect_silent(r <- swissgeo:::autoconvert_datetime(d), info = "Function is silent.")
+expect_identical(dim(d), dim(r), info = "Return of same dimension as the input.")
+expect_identical(names(d), names(r), info = "Names of return identical to input.")
+expect_inherits(r$c, "POSIXct", info = "Column $c converted to POSIXct.")
+rm(d, r)
+
+d <- data.frame(a = 1, b = "test", c = "16.01.2026 12:34")
+expect_silent(r <- swissgeo:::autoconvert_datetime(d), info = "Function is silent.")
+expect_identical(dim(d), dim(r), info = "Return of same dimension as the input.")
+expect_identical(names(d), names(r), info = "Names of return identical to input.")
+expect_inherits(r$c, "POSIXct", info = "Column $c converted to POSIXct.")
+rm(d, r)
+
+d <- data.frame(a = 1, b = "test", c = "16.01.2026 00:00")
+expect_silent(r <- swissgeo:::autoconvert_datetime(d), info = "Function is silent.")
+expect_identical(dim(d), dim(r), info = "Return of same dimension as the input.")
+expect_identical(names(d), names(r), info = "Names of return identical to input.")
+expect_inherits(r$c, "POSIXct", info = "Column $c converted to POSIXct.")
+rm(d, r)
+
+d <- data.frame(a = 1, b = "test", c = "16.01.2026")
+expect_silent(r <- swissgeo:::autoconvert_datetime(d), info = "Function is silent.")
+expect_identical(dim(d), dim(r), info = "Return of same dimension as the input.")
+expect_identical(names(d), names(r), info = "Names of return identical to input.")
+expect_inherits(r$c, "Date", info = "Column $c converted to Date.")
+rm(d, r)
+
+d <- data.frame(a = 1, b = "test", c = "2026-01-16")
+expect_silent(r <- swissgeo:::autoconvert_datetime(d), info = "Function is silent.")
+expect_identical(dim(d), dim(r), info = "Return of same dimension as the input.")
+expect_identical(names(d), names(r), info = "Names of return identical to input.")
+expect_inherits(r$c, "Date", info = "Column $c converted to Date.")
+rm(d, r)
+
+
+
